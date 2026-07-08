@@ -7900,6 +7900,15 @@ NTSTATUS do_write(device_extension* Vcb, PIRP Irp) {
 static void do_flush(device_extension* Vcb) {
     NTSTATUS Status;
 
+    // If nothing has been written since the last flush, skip the flush
+    // entirely rather than acquiring the tree lock exclusively and calling
+    // free_trees. Otherwise a volume that is only being read from stalls
+    // every flush interval: the exclusive acquisition blocks all opens and
+    // csum loads behind it, and free_trees throws away the cached metadata,
+    // forcing it to be re-read from disk immediately afterwards.
+    if (!Vcb->need_write || Vcb->readonly)
+        return;
+
     ExAcquireResourceExclusiveLite(&Vcb->tree_lock, true);
 
     if (Vcb->need_write && !Vcb->readonly)
