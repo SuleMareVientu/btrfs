@@ -271,7 +271,7 @@ if(NOT MSVC)
 
     target_compile_options(shellbtrfs PUBLIC -Wall -Wno-expansion-to-defined -Wunused-parameter -Wtype-limits -Wextra)
 else()
-    target_compile_options(shellbtrfs PUBLIC /EHsc)
+    target_compile_options(shellbtrfs PRIVATE $<$<COMPILE_LANGUAGE:CXX>:/EHsc>)
     target_link_options(shellbtrfs PUBLIC /MANIFEST:NO)
 endif()
 

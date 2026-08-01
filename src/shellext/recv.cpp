@@ -1561,8 +1561,10 @@ extern "C" void CALLBACK RecvSubvolGUIW(HWND hwnd, HINSTANCE, LPWSTR lpszCmdLine
 
         tp->PrivilegeCount = 3;
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warray-bounds"
+#endif
         if (!LookupPrivilegeValueW(nullptr, L"SeManageVolumePrivilege", &luid)) {
             free(tp);
             throw last_error(GetLastError());
@@ -1591,7 +1593,9 @@ extern "C" void CALLBACK RecvSubvolGUIW(HWND hwnd, HINSTANCE, LPWSTR lpszCmdLine
             free(tp);
             throw last_error(GetLastError());
         }
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
 
         file[0] = 0;
 
@@ -1637,8 +1641,10 @@ extern "C" void CALLBACK RecvSubvolW(HWND, HINSTANCE, LPWSTR lpszCmdLine, int) {
 
             tp->PrivilegeCount = 3;
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warray-bounds"
+#endif
             if (!LookupPrivilegeValueW(nullptr, L"SeManageVolumePrivilege", &luid)) {
                 free(tp);
                 return;
@@ -1662,7 +1668,9 @@ extern "C" void CALLBACK RecvSubvolW(HWND, HINSTANCE, LPWSTR lpszCmdLine, int) {
 
             tp->Privileges[2].Luid = luid;
             tp->Privileges[2].Attributes = SE_PRIVILEGE_ENABLED;
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
 
             if (!AdjustTokenPrivileges(token, false, tp, tplen, nullptr, nullptr)) {
                 free(tp);
