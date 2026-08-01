@@ -8,4 +8,5 @@ out/
 *.VC.db
 *.cat
 *.zip
-
+Windows-driver-samples/
+gh_issues

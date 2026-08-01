@@ -4044,7 +4044,8 @@ NTSTATUS __stdcall drv_set_information(IN PDEVICE_OBJECT DeviceObject, IN PIRP I
 
     TRACE("set information\n");
 
-    FsRtlCheckOplock(fcb_oplock(fcb), Irp, NULL, NULL, NULL);
+    if (fcb->type == BTRFS_TYPE_FILE || fcb->type == BTRFS_TYPE_DIRECTORY || fcb->type == BTRFS_TYPE_SYMLINK)
+        FsRtlCheckOplock(fcb_oplock(fcb), Irp, NULL, NULL, NULL);
 
     switch (IrpSp->Parameters.SetFile.FileInformationClass) {
         case FileAllocationInformation:

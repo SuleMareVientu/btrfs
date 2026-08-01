@@ -3441,7 +3441,37 @@ end:
                 Vcb->balance.status = STATUS_INTERNAL_ERROR;
             }
 
-            if (Vcb->balance.stopping || !NT_SUCCESS(Vcb->balance.status)) {
+            bool chunk_overflow = false;
+
+            if (dev) {
+                LIST_ENTRY* le2 = Vcb->chunks.Flink;
+                while (le2 != &Vcb->chunks) {
+                    chunk* c = CONTAINING_RECORD(le2, chunk, list_entry);
+                    CHUNK_ITEM_STRIPE* cis = (CHUNK_ITEM_STRIPE*)&c->chunk_item[1];
+                    uint16_t i;
+
+                    for (i = 0; i < c->chunk_item->num_stripes; i++) {
+                        if (c->devices[i] && c->devices[i]->devitem.dev_id == dev->devitem.dev_id) {
+                            if (cis[i].offset + c->chunk_item->stripe_length > Vcb->balance.opts[0].drange_start) {
+                                chunk_overflow = true;
+                                ERR("device shrink failed: chunk %I64x at physical offset %I64x extends beyond target size %I64x\n",
+                                    c->offset, cis[i].offset, Vcb->balance.opts[0].drange_start);
+                                break;
+                            }
+                        }
+                    }
+
+                    if (chunk_overflow)
+                        break;
+
+                    le2 = le2->Flink;
+                }
+            }
+
+            if (Vcb->balance.stopping || !NT_SUCCESS(Vcb->balance.status) || chunk_overflow) {
+                if (chunk_overflow)
+                    Vcb->balance.status = STATUS_UNSUCCESSFUL;
+
                 if (dev) {
                     Status = regenerate_space_list(Vcb, dev);
                     if (!NT_SUCCESS(Status))

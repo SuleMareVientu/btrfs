@@ -1635,6 +1635,8 @@ typedef struct {
     PIO_WORKITEM work_item;
 } notification_fcb;
 
+static LONG active_notification_work_items = 0;
+
 _Function_class_(IO_WORKITEM_ROUTINE)
 static void __stdcall notification_work_item(PDEVICE_OBJECT DeviceObject, PVOID con) {
     notification_fcb* nf = con;
@@ -1652,11 +1654,16 @@ static void __stdcall notification_work_item(PDEVICE_OBJECT DeviceObject, PVOID 
     IoFreeWorkItem(nf->work_item);
 
     ExFreePool(nf);
+
+    InterlockedDecrement(&active_notification_work_items);
 }
 
 void queue_notification_fcb(_In_ file_ref* fileref, _In_ ULONG filter_match, _In_ ULONG action, _In_opt_ PUNICODE_STRING stream) {
     notification_fcb* nf;
     PIO_WORKITEM work_item;
+
+    if (shutting_down || !fileref || !fileref->fcb || !fileref->fcb->Vcb || fileref->fcb->Vcb->readonly || fileref->fcb->Vcb->volume_fcb == fileref->fcb)
+        return;
 
     nf = ExAllocatePoolWithTag(PagedPool, sizeof(notification_fcb), ALLOC_TAG);
     if (!nf) {
@@ -1678,6 +1685,8 @@ void queue_notification_fcb(_In_ file_ref* fileref, _In_ ULONG filter_match, _In
     nf->action = action;
     nf->stream = stream;
     nf->work_item = work_item;
+
+    InterlockedIncrement(&active_notification_work_items);
 
     IoQueueWorkItem(work_item, notification_work_item, DelayedWorkQueue, nf);
 }
@@ -2461,7 +2470,8 @@ static NTSTATUS __stdcall drv_cleanup(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIR
         goto exit;
     }
 
-    FsRtlCheckOplock(fcb_oplock(fcb), Irp, NULL, NULL, NULL);
+    if (fcb->type == BTRFS_TYPE_FILE || fcb->type == BTRFS_TYPE_DIRECTORY || fcb->type == BTRFS_TYPE_SYMLINK)
+        FsRtlCheckOplock(fcb_oplock(fcb), Irp, NULL, NULL, NULL);
 
     // We have to use the pointer to Vcb stored in the fcb, as we can receive cleanup
     // messages belonging to other devices.
@@ -5371,7 +5381,8 @@ static NTSTATUS __stdcall drv_lock_control(_In_ PDEVICE_OBJECT DeviceObject, _In
         goto exit;
     }
 
-    FsRtlCheckOplock(fcb_oplock(fcb), Irp, NULL, NULL, NULL);
+    if (fcb->type == BTRFS_TYPE_FILE || fcb->type == BTRFS_TYPE_DIRECTORY || fcb->type == BTRFS_TYPE_SYMLINK)
+        FsRtlCheckOplock(fcb_oplock(fcb), Irp, NULL, NULL, NULL);
 
     Status = FsRtlProcessFileLock(&fcb->lock, Irp, NULL);
 
@@ -5391,9 +5402,16 @@ exit:
 void do_shutdown(PIRP Irp) {
     LIST_ENTRY* le;
     bus_device_extension* bde;
+    LARGE_INTEGER interval;
 
     shutting_down = true;
+    stop_watching_registry();
     KeSetEvent(&mountmgr_thread_event, 0, false);
+
+    interval.QuadPart = -100000LL;
+    while (InterlockedCompareExchange(&active_notification_work_items, 0, 0) > 0) {
+        KeDelayExecutionThread(KernelMode, false, &interval);
+    }
 
     le = VcbList.Flink;
     while (le != &VcbList) {

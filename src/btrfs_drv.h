@@ -1528,6 +1528,7 @@ NTSTATUS registry_mark_volume_mounted(BTRFS_UUID* uuid);
 NTSTATUS registry_mark_volume_unmounted(BTRFS_UUID* uuid);
 NTSTATUS registry_load_volume_options(device_extension* Vcb);
 void watch_registry(HANDLE regh);
+void stop_watching_registry(void);
 
 // in compress.c
 NTSTATUS zlib_decompress(uint8_t* inbuf, uint32_t inlen, uint8_t* outbuf, uint32_t outlen);

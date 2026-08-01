@@ -1018,28 +1018,48 @@ void read_registry(PUNICODE_STRING regpath, bool refresh) {
     ZwClose(h);
 }
 
+static PIO_STATUS_BLOCK registry_iosb = NULL;
+static HANDLE registry_key_handle = NULL;
+
 _Function_class_(WORKER_THREAD_ROUTINE)
 static void __stdcall registry_work_item(PVOID Parameter) {
     NTSTATUS Status;
     HANDLE regh = (HANDLE)Parameter;
-    IO_STATUS_BLOCK iosb;
 
     TRACE("registry changed\n");
 
     read_registry(&registry_path, true);
 
-    Status = ZwNotifyChangeKey(regh, NULL, (PVOID)&wqi, (PVOID)DelayedWorkQueue, &iosb, REG_NOTIFY_CHANGE_LAST_SET, true, NULL, 0, true);
-    if (!NT_SUCCESS(Status))
-        ERR("ZwNotifyChangeKey returned %08lx\n", Status);
+    if (!registry_iosb)
+        registry_iosb = ExAllocatePoolWithTag(NonPagedPoolNx, sizeof(IO_STATUS_BLOCK), ALLOC_TAG);
+
+    if (registry_iosb && registry_key_handle) {
+        Status = ZwNotifyChangeKey(regh, NULL, (PVOID)&wqi, (PVOID)DelayedWorkQueue, registry_iosb, REG_NOTIFY_CHANGE_LAST_SET, true, NULL, 0, true);
+        if (!NT_SUCCESS(Status))
+            ERR("ZwNotifyChangeKey returned %08lx\n", Status);
+    }
 }
 
 void watch_registry(HANDLE regh) {
     NTSTATUS Status;
-    IO_STATUS_BLOCK iosb;
+
+    registry_key_handle = regh;
 
     ExInitializeWorkItem(&wqi, registry_work_item, regh);
 
-    Status = ZwNotifyChangeKey(regh, NULL, (PVOID)&wqi, (PVOID)DelayedWorkQueue, &iosb, REG_NOTIFY_CHANGE_LAST_SET, true, NULL, 0, true);
-    if (!NT_SUCCESS(Status))
-        ERR("ZwNotifyChangeKey returned %08lx\n", Status);
+    if (!registry_iosb)
+        registry_iosb = ExAllocatePoolWithTag(NonPagedPoolNx, sizeof(IO_STATUS_BLOCK), ALLOC_TAG);
+
+    if (registry_iosb) {
+        Status = ZwNotifyChangeKey(regh, NULL, (PVOID)&wqi, (PVOID)DelayedWorkQueue, registry_iosb, REG_NOTIFY_CHANGE_LAST_SET, true, NULL, 0, true);
+        if (!NT_SUCCESS(Status))
+            ERR("ZwNotifyChangeKey returned %08lx\n", Status);
+    }
+}
+
+void stop_watching_registry(void) {
+    if (registry_key_handle) {
+        ZwClose(registry_key_handle);
+        registry_key_handle = NULL;
+    }
 }

@@ -3668,23 +3668,26 @@ static NTSTATUS duplicate_extents(device_extension* Vcb, PFILE_OBJECT FileObject
     win_time_to_unix(time, &now);
 
     if (fcb->ads) {
-        ccb->fileref->parent->fcb->inode_item.sequence++;
+        if (ccb && ccb->fileref && ccb->fileref->parent && ccb->fileref->parent->fcb) {
+            ccb->fileref->parent->fcb->inode_item.sequence++;
 
-        if (!ccb->user_set_change_time)
-            ccb->fileref->parent->fcb->inode_item.st_ctime = now;
+            if (!ccb->user_set_change_time)
+                ccb->fileref->parent->fcb->inode_item.st_ctime = now;
 
-        ccb->fileref->parent->fcb->inode_item_changed = true;
-        mark_fcb_dirty(ccb->fileref->parent->fcb);
+            ccb->fileref->parent->fcb->inode_item_changed = true;
+            mark_fcb_dirty(ccb->fileref->parent->fcb);
+        }
     } else {
         fcb->inode_item.st_blocks += nbytes;
         fcb->inode_item.sequence++;
 
-        if (!ccb->user_set_change_time)
+        if (ccb && !ccb->user_set_change_time)
             fcb->inode_item.st_ctime = now;
 
-        if (!ccb->user_set_write_time) {
+        if (ccb && !ccb->user_set_write_time) {
             fcb->inode_item.st_mtime = now;
-            queue_notification_fcb(ccb->fileref, FILE_NOTIFY_CHANGE_LAST_WRITE, FILE_ACTION_MODIFIED, NULL);
+            if (ccb->fileref)
+                queue_notification_fcb(ccb->fileref, FILE_NOTIFY_CHANGE_LAST_WRITE, FILE_ACTION_MODIFIED, NULL);
         }
 
         fcb->inode_item_changed = true;
@@ -3693,12 +3696,22 @@ static NTSTATUS duplicate_extents(device_extension* Vcb, PFILE_OBJECT FileObject
 
     mark_fcb_dirty(fcb);
 
-    if (FileObject->SectionObjectPointer->DataSectionObject)
+    if (FileObject->SectionObjectPointer && FileObject->SectionObjectPointer->DataSectionObject) {
+        IO_STATUS_BLOCK iosb;
+        CcFlushCache(FileObject->SectionObjectPointer, &ded->TargetFileOffset, (ULONG)ded->ByteCount.QuadPart, &iosb);
         CcPurgeCacheSection(FileObject->SectionObjectPointer, &ded->TargetFileOffset, (ULONG)ded->ByteCount.QuadPart, false);
+    }
 
     Status = STATUS_SUCCESS;
 
 end:
+    while (!IsListEmpty(&newexts)) {
+        extent* ext = CONTAINING_RECORD(RemoveHeadList(&newexts), extent, list_entry);
+        if (ext->csum)
+            ExFreePool(ext->csum);
+        ExFreePool(ext);
+    }
+
     ObDereferenceObject(sourcefo);
 
     if (NT_SUCCESS(Status))
@@ -5347,8 +5360,12 @@ NTSTATUS fsctl_request(PDEVICE_OBJECT DeviceObject, PIRP* Pirp, uint32_t type) {
     if (IrpSp->FileObject && IrpSp->FileObject->FsContext) {
         device_extension* Vcb = DeviceObject->DeviceExtension;
 
-        if (Vcb->type == VCB_TYPE_FS)
-            FsRtlCheckOplock(fcb_oplock(IrpSp->FileObject->FsContext), Irp, NULL, NULL, NULL);
+        if (Vcb->type == VCB_TYPE_FS) {
+            fcb* fcb = IrpSp->FileObject->FsContext;
+
+            if (fcb->type == BTRFS_TYPE_FILE || fcb->type == BTRFS_TYPE_DIRECTORY || fcb->type == BTRFS_TYPE_SYMLINK)
+                FsRtlCheckOplock(fcb_oplock(fcb), Irp, NULL, NULL, NULL);
+        }
     }
 
     switch (type) {

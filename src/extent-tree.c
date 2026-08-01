@@ -2011,8 +2011,16 @@ NTSTATUS update_changed_extent_ref(device_extension* Vcb, chunk* c, uint64_t add
         cer = CONTAINING_RECORD(le, changed_extent_ref, list_entry);
 
         if (cer->type == TYPE_EXTENT_DATA_REF && cer->edr.root == root && cer->edr.objid == objid && cer->edr.offset == offset) {
-            ce->count += count;
-            cer->edr.count += count;
+            if (count < 0 && (uint64_t)(-count) > ce->count)
+                ce->count = 0;
+            else
+                ce->count += count;
+
+            if (count < 0 && (uint32_t)(-count) > cer->edr.count)
+                cer->edr.count = 0;
+            else
+                cer->edr.count += count;
+
             Status = STATUS_SUCCESS;
 
             if (superseded)
@@ -2056,11 +2064,18 @@ NTSTATUS update_changed_extent_ref(device_extension* Vcb, chunk* c, uint64_t add
     cer->edr.root = root;
     cer->edr.objid = objid;
     cer->edr.offset = offset;
-    cer->edr.count = old_count + count;
+    
+    if (count < 0 && (uint32_t)(-count) > old_count)
+        cer->edr.count = 0;
+    else
+        cer->edr.count = old_count + count;
 
     InsertTailList(&ce->refs, &cer->list_entry);
 
-    ce->count += count;
+    if (count < 0 && (uint64_t)(-count) > ce->count)
+        ce->count = 0;
+    else
+        ce->count += count;
 
     if (superseded)
         ce->superseded = true;

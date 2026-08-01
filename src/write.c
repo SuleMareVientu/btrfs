@@ -1005,20 +1005,22 @@ static NTSTATUS add_partial_stripe(device_extension* Vcb, chunk* c, uint64_t add
             // if now filled, flush
             if (RtlAreBitsClear(&ps->bmp, 0, (ULONG)((num_data_stripes * c->chunk_item->stripe_length) >> Vcb->sector_shift))) {
                 Status = flush_partial_stripe(Vcb, c, ps);
-                if (!NT_SUCCESS(Status)) {
-                    ERR("flush_partial_stripe returned %08lx\n", Status);
-                    goto end;
-                }
 
                 RemoveEntryList(&ps->list_entry);
+                InitializeListHead(&ps->list_entry);
 
                 if (ps->bmparr)
                     ExFreePool(ps->bmparr);
 
                 ExFreePool(ps);
-            }
 
-            Status = STATUS_SUCCESS;
+                if (!NT_SUCCESS(Status)) {
+                    ERR("flush_partial_stripe returned %08lx\n", Status);
+                    goto end;
+                }
+            } else
+                Status = STATUS_SUCCESS;
+
             goto end;
         } else if (ps->address > stripe_addr)
             break;
