@@ -17,17 +17,13 @@ CatalogFile = btrfs.cat
 Btrfs.DriverFiles       = 12            ;%windir%\system32\drivers
 Btrfs.DllFiles          = 11            ;%windir%\system32
 
-;;
-;; Default install sections
-;;
-
-[DefaultInstall.NTamd64]
+[DefaultInstall]
 OptionDesc  = %ServiceDescription%
 CopyFiles   = Btrfs.DriverFiles,Btrfs.DllFiles
 AddReg      = shellbtrfs_AddReg
 CopyINF     = btrfs-vol.inf
 
-[DefaultInstall.NTamd64.Services]
+[DefaultInstall.Services]
 AddService  = %ServiceName%,0x802,Btrfs.Service
 
 ;
@@ -44,16 +40,16 @@ ErrorControl     = 1
 LoadOrderGroup   = "File System"
 
 ;
-; Copy Files
+; Copy Files (0x00000024 = COPYFLG_NOVERSIONCHECK | COPYFLG_FORCE_FILE_IN_USE)
 ;
 
 [Btrfs.DriverFiles]
-%DriverName%.sys
+btrfs.sys,,,0x00000024
 
 [Btrfs.DllFiles]
-shellbtrfs.dll
-ubtrfs.dll
-mkbtrfs.exe
+shellbtrfs.dll,,,0x00000024
+ubtrfs.dll,,,0x00000024
+mkbtrfs.exe,,,0x00000024
 
 [SourceDisksFiles]
 btrfs.sys = 1,,
@@ -61,7 +57,7 @@ shellbtrfs.dll = 1,,
 ubtrfs.dll = 1,,
 mkbtrfs.exe = 1,,
 
-[SourceDisksNames.amd64]
+[SourceDisksNames]
 1 = %DiskId1%,,,\amd64
 
 [shellbtrfs_AddReg]

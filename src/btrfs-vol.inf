@@ -45,11 +45,11 @@ ErrorControl     = 1
 LoadOrderGroup   = "File System"
 
 ;
-; Copy Files
+; Copy Files (0x00000024 = COPYFLG_NOVERSIONCHECK | COPYFLG_FORCE_FILE_IN_USE)
 ;
 
 [Btrfs.DriverFiles]
-%DriverName%.sys
+btrfs.sys,,,0x00000024
 
 [SourceDisksFiles]
 btrfs.sys = 1,,
