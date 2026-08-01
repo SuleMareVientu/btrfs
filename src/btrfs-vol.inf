@@ -18,21 +18,9 @@ PnpLockdown = 1
 Btrfs.DriverFiles       = 12            ;%windir%\system32\drivers
 
 [Manufacturer]
-%Me%=Standard,NTamd64,NTx86,NTarm,NTarm64
+%Me%=Standard,NTamd64
 
 [Standard.NTamd64]
-%VolumeName% = Btrfs_Install, BtrfsVolume
-%ControllerName% = Btrfs_Install, ROOT\btrfs
-
-[Standard.NTx86]
-%VolumeName% = Btrfs_Install, BtrfsVolume
-%ControllerName% = Btrfs_Install, ROOT\btrfs
-
-[Standard.NTarm]
-%VolumeName% = Btrfs_Install, BtrfsVolume
-%ControllerName% = Btrfs_Install, ROOT\btrfs
-
-[Standard.NTarm64]
 %VolumeName% = Btrfs_Install, BtrfsVolume
 %ControllerName% = Btrfs_Install, ROOT\btrfs
 
@@ -66,17 +54,8 @@ LoadOrderGroup   = "File System"
 [SourceDisksFiles]
 btrfs.sys = 1,,
 
-[SourceDisksNames.x86]
-1 = %DiskId1%,,,\x86
-
 [SourceDisksNames.amd64]
 1 = %DiskId1%,,,\amd64
-
-[SourceDisksNames.arm]
-1 = %DiskId1%,,,\arm
-
-[SourceDisksNames.arm64]
-1 = %DiskId1%,,,\aarch64
 
 ;;
 ;; String Section

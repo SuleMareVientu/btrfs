@@ -27,34 +27,7 @@ CopyFiles   = Btrfs.DriverFiles,Btrfs.DllFiles
 AddReg      = shellbtrfs_AddReg
 CopyINF     = btrfs-vol.inf
 
-[DefaultInstall.NTx86]
-OptionDesc  = %ServiceDescription%
-CopyFiles   = Btrfs.DriverFiles,Btrfs.DllFiles
-AddReg      = shellbtrfs_AddReg
-CopyINF     = btrfs-vol.inf
-
-[DefaultInstall.NTarm]
-OptionDesc  = %ServiceDescription%
-CopyFiles   = Btrfs.DriverFiles,Btrfs.DllFiles
-AddReg      = shellbtrfs_AddReg
-CopyINF     = btrfs-vol.inf
-
-[DefaultInstall.NTarm64]
-OptionDesc  = %ServiceDescription%
-CopyFiles   = Btrfs.DriverFiles,Btrfs.DllFiles
-AddReg      = shellbtrfs_AddReg
-CopyINF     = btrfs-vol.inf
-
 [DefaultInstall.NTamd64.Services]
-AddService  = %ServiceName%,0x802,Btrfs.Service
-
-[DefaultInstall.NTx86.Services]
-AddService  = %ServiceName%,0x802,Btrfs.Service
-
-[DefaultInstall.NTarm.Services]
-AddService  = %ServiceName%,0x802,Btrfs.Service
-
-[DefaultInstall.NTarm64.Services]
 AddService  = %ServiceName%,0x802,Btrfs.Service
 
 ;
@@ -88,17 +61,8 @@ shellbtrfs.dll = 1,,
 ubtrfs.dll = 1,,
 mkbtrfs.exe = 1,,
 
-[SourceDisksNames.x86]
-1 = %DiskId1%,,,\x86
-
 [SourceDisksNames.amd64]
 1 = %DiskId1%,,,\amd64
-
-[SourceDisksNames.arm]
-1 = %DiskId1%,,,\arm
-
-[SourceDisksNames.arm64]
-1 = %DiskId1%,,,\aarch64
 
 [shellbtrfs_AddReg]
 HKCR,*\ShellEx\PropertySheetHandlers\WinBtrfs,,,"{2690B74F-F353-422D-BB12-401581EEF8F2}"
