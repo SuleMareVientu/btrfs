@@ -1,8 +1,14 @@
 set(CMAKE_SYSTEM_NAME Windows)
 
-SET(CMAKE_C_COMPILER /opt/msvc/bin/x86/cl)
-SET(CMAKE_CXX_COMPILER /opt/msvc/bin/x86/cl)
-SET(CMAKE_RC_COMPILER /opt/msvc/bin/x86/rc)
+if(EXISTS "/opt/msvc/bin/x86/cl")
+    SET(CMAKE_C_COMPILER /opt/msvc/bin/x86/cl)
+    SET(CMAKE_CXX_COMPILER /opt/msvc/bin/x86/cl)
+    SET(CMAKE_RC_COMPILER /opt/msvc/bin/x86/rc)
+else()
+    SET(CMAKE_C_COMPILER cl)
+    SET(CMAKE_CXX_COMPILER cl)
+    SET(CMAKE_RC_COMPILER rc)
+endif()
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /MANIFEST:NO")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /MANIFEST:NO")

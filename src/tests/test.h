@@ -265,9 +265,11 @@ typedef struct _FILE_OBJECTID_BUFFER {
 
 #define FILE_CS_FLAG_CASE_SENSITIVE_DIR             0x00000001
 
+#ifndef _MSC_VER
 typedef struct _FILE_CASE_SENSITIVE_INFORMATION {
     ULONG Flags;
 } FILE_CASE_SENSITIVE_INFORMATION, *PFILE_CASE_SENSITIVE_INFORMATION;
+#endif
 
 typedef struct _REPARSE_DATA_BUFFER {
     ULONG ReparseTag;
@@ -660,8 +662,11 @@ typedef struct _REQUEST_OPLOCK_OUTPUT_BUFFER {
     WORD ShareMode;
 } REQUEST_OPLOCK_OUTPUT_BUFFER, *PREQUEST_OPLOCK_OUTPUT_BUFFER;
 
+#ifndef FileStatInformation
 #define FileStatInformation ((FILE_INFORMATION_CLASS)68)
+#endif
 
+#ifndef _MSC_VER
 typedef struct _FILE_STAT_INFORMATION {
     LARGE_INTEGER FileId;
     LARGE_INTEGER CreationTime;
@@ -675,9 +680,13 @@ typedef struct _FILE_STAT_INFORMATION {
     ULONG NumberOfLinks;
     ACCESS_MASK EffectiveAccess;
 } FILE_STAT_INFORMATION, *PFILE_STAT_INFORMATION;
+#endif
 
+#ifndef FileStatLxInformation
 #define FileStatLxInformation ((FILE_INFORMATION_CLASS)70)
+#endif
 
+#ifndef _MSC_VER
 typedef struct _FILE_STAT_LX_INFORMATION {
     LARGE_INTEGER FileId;
     LARGE_INTEGER CreationTime;
@@ -697,6 +706,7 @@ typedef struct _FILE_STAT_LX_INFORMATION {
     ULONG LxDeviceIdMajor;
     ULONG LxDeviceIdMinor;
 } FILE_STAT_LX_INFORMATION, *PFILE_STAT_LX_INFORMATION;
+#endif
 
 typedef struct _FILE_STANDARD_LINK_INFORMATION {
     ULONG NumberOfAccessibleLinks;
