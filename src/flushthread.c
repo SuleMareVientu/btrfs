@@ -7887,10 +7887,15 @@ NTSTATUS do_write(device_extension* Vcb, PIRP Irp) {
     Status = do_write2(Vcb, Irp, &rollback);
 
     if (!NT_SUCCESS(Status)) {
-        ERR("do_write2 returned %08lx, dropping into readonly mode\n", Status);
-        Vcb->readonly = true;
-        FsRtlNotifyVolumeEvent(Vcb->root_file, FSRTL_VOLUME_FORCED_CLOSED);
-        do_rollback(Vcb, &rollback);
+        if (Status == STATUS_DISK_FULL) {
+            WARN("do_write2 returned STATUS_DISK_FULL, rolling back transaction\n");
+            do_rollback(Vcb, &rollback);
+        } else {
+            ERR("do_write2 returned %08lx, dropping into readonly mode\n", Status);
+            Vcb->readonly = true;
+            FsRtlNotifyVolumeEvent(Vcb->root_file, FSRTL_VOLUME_FORCED_CLOSED);
+            do_rollback(Vcb, &rollback);
+        }
     } else
         clear_rollback(&rollback);
 
@@ -7909,7 +7914,8 @@ static void do_flush(device_extension* Vcb) {
     if (!Vcb->need_write || Vcb->readonly)
         return;
 
-    ExAcquireResourceExclusiveLite(&Vcb->tree_lock, true);
+    if (!ExAcquireResourceExclusiveLite(&Vcb->tree_lock, false))
+        return;
 
     if (Vcb->need_write && !Vcb->readonly)
         Status = do_write(Vcb, NULL);

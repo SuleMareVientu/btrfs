@@ -4089,6 +4089,8 @@ void init_file_cache(_In_ PFILE_OBJECT FileObject, _In_ CC_FILE_SIZES* ccfs) {
         fCcSetAdditionalCacheAttributesEx(FileObject, CC_ENABLE_DISK_IO_ACCOUNTING);
 
     CcSetReadAheadGranularity(FileObject, READ_AHEAD_GRANULARITY);
+
+    CcSetDirtyPageThreshold(FileObject, (256 * 1024 * 1024) / PAGE_SIZE);
 }
 
 uint32_t get_num_of_processors() {

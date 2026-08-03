@@ -1414,6 +1414,23 @@ static NTSTATUS handle_batch_collision(device_extension* Vcb, batch_item* bi, tr
 
             case Batch_DirItem: {
                 uint8_t* newdata;
+                DIR_ITEM* newdi = (DIR_ITEM*)bi->data;
+                DIR_ITEM* di = (DIR_ITEM*)td->data;
+                ULONG size = td->size;
+
+                while (size >= sizeof(DIR_ITEM)) {
+                    ULONG disize = sizeof(DIR_ITEM) - 1 + di->m + di->n;
+                    if (size < disize)
+                        break;
+
+                    if (di->n == newdi->n && RtlCompareMemory(&di->name[di->m], &newdi->name[newdi->m], di->n) == di->n) {
+                        WARN("duplicate filename in Batch_DirItem: %.*s\n", di->n, &di->name[di->m]);
+                        return STATUS_OBJECT_NAME_COLLISION;
+                    }
+
+                    size -= disize;
+                    di = (DIR_ITEM*)((uint8_t*)di + disize);
+                }
 
                 if (td->size + bi->datalen > maxlen) {
                     ERR("DIR_ITEM would be over maximum size (%u + %u > %u)\n", td->size, bi->datalen, maxlen);
