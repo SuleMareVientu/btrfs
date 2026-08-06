@@ -60,10 +60,13 @@ static NTSTATUS pnp_remove_device(PDEVICE_OBJECT DeviceObject) {
             WARN("FsRtlNotifyVolumeEvent returned %08lx\n", Status);
         }
 
-        if (Vcb->vde)
-            Vcb->vde->mounted_device = NULL;
-
         ExAcquireResourceExclusiveLite(&Vcb->tree_lock, true);
+
+        if (Vcb->vde) {
+            Vcb->vde->mounted_device = NULL;
+            Vcb->vde = NULL;
+        }
+
         Vcb->removing = true;
         Vcb->readonly = true;
         ExReleaseResourceLite(&Vcb->tree_lock);
@@ -85,8 +88,10 @@ NTSTATUS pnp_surprise_removal(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
     if (DeviceObject->Vpb->Flags & VPB_MOUNTED) {
         ExAcquireResourceExclusiveLite(&Vcb->tree_lock, true);
 
-        if (Vcb->vde)
+        if (Vcb->vde) {
             Vcb->vde->mounted_device = NULL;
+            Vcb->vde = NULL;
+        }
 
         Vcb->removing = true;
         Vcb->readonly = true;

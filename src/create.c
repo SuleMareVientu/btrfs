@@ -3602,6 +3602,12 @@ static NTSTATUS open_file3(device_extension* Vcb, PIRP Irp, ACCESS_MASK granted_
         LARGE_INTEGER time;
         BTRFS_TIME now;
 
+        Status = FsRtlCheckOplock(fcb_oplock(fileref->fcb), Irp, NULL, NULL, NULL);
+        if (!NT_SUCCESS(Status) && Status != STATUS_OPLOCK_BREAK_IN_PROGRESS) {
+            WARN("FsRtlCheckOplock returned %08lx\n", Status);
+            return Status;
+        }
+
         if (!fileref->fcb->ads && (IrpSp->Parameters.Create.FileAttributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) != ((fileref->fcb->atts & (FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_HIDDEN))))
             return STATUS_ACCESS_DENIED;
 

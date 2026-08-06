@@ -3519,6 +3519,17 @@ NTSTATUS __stdcall drv_read(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
 
     top_level = is_top_level(Irp);
 
+    if (IoGetRemainingStackSize() < 4096) {
+        IoMarkIrpPending(Irp);
+        if (!add_thread_job(Vcb, Irp)) {
+            Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
+            Irp->IoStatus.Information = 0;
+            IoCompleteRequest(Irp, IO_NO_INCREMENT);
+        }
+        Status = STATUS_PENDING;
+        goto exit2;
+    }
+
     TRACE("read\n");
 
     if (Vcb && Vcb->type == VCB_TYPE_VOLUME) {
@@ -3582,7 +3593,7 @@ NTSTATUS __stdcall drv_read(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
     if (Irp->Flags & IRP_PAGING_IO)
         wait = true;
 
-    if (!(Irp->Flags & IRP_PAGING_IO) && FileObject->SectionObjectPointer && FileObject->SectionObjectPointer->DataSectionObject) {
+    if (Irp->Flags & IRP_NOCACHE && !(Irp->Flags & IRP_PAGING_IO) && FileObject->SectionObjectPointer && FileObject->SectionObjectPointer->DataSectionObject) {
         IO_STATUS_BLOCK iosb;
 
         CcFlushCache(FileObject->SectionObjectPointer, &IrpSp->Parameters.Read.ByteOffset, IrpSp->Parameters.Read.Length, &iosb);

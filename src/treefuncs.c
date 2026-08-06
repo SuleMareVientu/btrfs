@@ -1423,8 +1423,8 @@ static NTSTATUS handle_batch_collision(device_extension* Vcb, batch_item* bi, tr
                     if (size < disize)
                         break;
 
-                    if (di->n == newdi->n && RtlCompareMemory(&di->name[di->m], &newdi->name[newdi->m], di->n) == di->n) {
-                        WARN("duplicate filename in Batch_DirItem: %.*s\n", di->n, &di->name[di->m]);
+                    if (di->n == newdi->n && RtlCompareMemory(di->name, newdi->name, di->n) == di->n) {
+                        WARN("duplicate filename in Batch_DirItem: %.*s\n", di->n, di->name);
                         return STATUS_OBJECT_NAME_COLLISION;
                     }
 

@@ -332,6 +332,8 @@ _Function_class_(DRIVER_UNLOAD)
 static void __stdcall DriverUnload(_In_ PDRIVER_OBJECT DriverObject) {
     UNICODE_STRING dosdevice_nameW;
 
+    FsRtlEnterFileSystem();
+
     TRACE("(%p)\n", DriverObject);
 
     dosdevice_nameW.Buffer = (WCHAR*)dosdevice_name;
@@ -382,6 +384,8 @@ static void __stdcall DriverUnload(_In_ PDRIVER_OBJECT DriverObject) {
     ExDeleteResourceLite(&log_lock);
 #endif
     ExDeleteResourceLite(&mapping_lock);
+	
+    FsRtlExitFileSystem();
 }
 
 static bool get_last_inode(_In_ _Requires_exclusive_lock_held_(_Curr_->tree_lock) device_extension* Vcb, _In_ root* r, _In_opt_ PIRP Irp) {
@@ -2016,7 +2020,8 @@ void uninit(_In_ device_extension* Vcb) {
     IoAcquireVpbSpinLock(&irql);
     Vcb->Vpb->Flags &= ~VPB_MOUNTED;
     Vcb->Vpb->Flags |= VPB_DIRECT_WRITES_ALLOWED;
-    Vcb->Vpb->DeviceObject = NULL;
+    if (Vcb->Vpb->ReferenceCount == 0)
+        Vcb->Vpb->DeviceObject = NULL;
     IoReleaseVpbSpinLock(irql);
 
     // FIXME - needs global_loading_lock to be held
@@ -2481,7 +2486,6 @@ static NTSTATUS __stdcall drv_cleanup(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIR
         file_ref* fileref;
         bool locked = true;
         bool uninitialize_cache_map = false;
-        bool flush_and_purge_cache = false;
 
         ccb = FileObject->FsContext2;
         fileref = ccb ? ccb->fileref : NULL;
@@ -2575,8 +2579,7 @@ static NTSTATUS __stdcall drv_cleanup(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIR
                         ExReleaseResourceLite(&fcb->Vcb->fileref_lock);
 
                         clear_rollback(&rollback);
-                    } else if (FileObject->Flags & FO_CACHE_SUPPORTED && FileObject->SectionObjectPointer->DataSectionObject)
-                        flush_and_purge_cache = true;
+                    }
                 }
 
                 if (fcb->Vcb && fcb != fcb->Vcb->volume_fcb)
@@ -2588,25 +2591,6 @@ static NTSTATUS __stdcall drv_cleanup(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIR
             ExReleaseResourceLite(fcb->Header.Resource);
 
         ExReleaseResourceLite(&fcb->Vcb->tree_lock);
-
-        if (flush_and_purge_cache) {
-            IO_STATUS_BLOCK iosb;
-
-            CcFlushCache(FileObject->SectionObjectPointer, NULL, 0, &iosb);
-
-            if (!NT_SUCCESS(iosb.Status))
-                ERR("CcFlushCache returned %08lx\n", iosb.Status);
-
-            if (!ExIsResourceAcquiredSharedLite(fcb->Header.PagingIoResource)) {
-                ExAcquireResourceExclusiveLite(fcb->Header.PagingIoResource, true);
-                ExReleaseResourceLite(fcb->Header.PagingIoResource);
-            }
-
-            CcPurgeCacheSection(FileObject->SectionObjectPointer, NULL, 0, false);
-
-            TRACE("flushed cache on close (FileObject = %p, fcb = %p, AllocationSize = %I64x, FileSize = %I64x, ValidDataLength = %I64x)\n",
-                  FileObject, fcb, fcb->Header.AllocationSize.QuadPart, fcb->Header.FileSize.QuadPart, fcb->Header.ValidDataLength.QuadPart);
-        }
 
         /* In rare instances CcUninitializeCacheMap can block - we need to make
            sure we're not holding tree_lock if it does. */
@@ -5431,7 +5415,26 @@ void do_shutdown(PIRP Irp) {
         if (devobj)
             ObReferenceObject(devobj);
 
+        PDEVICE_OBJECT real_dev = (Vcb->Vpb && Vcb->Vpb->RealDevice) ? Vcb->Vpb->RealDevice : NULL;
+        if (real_dev)
+            ObReferenceObject(real_dev);
+
         dismount_volume(Vcb, true, Irp);
+
+        if (real_dev) {
+            PIRP shutdown_irp;
+            KEVENT event;
+            IO_STATUS_BLOCK iosb;
+
+            KeInitializeEvent(&event, NotificationEvent, false);
+            shutdown_irp = IoBuildSynchronousFsdRequest(IRP_MJ_SHUTDOWN, real_dev, NULL, 0, NULL, &event, &iosb);
+            if (shutdown_irp) {
+                NTSTATUS status = IoCallDriver(real_dev, shutdown_irp);
+                if (status == STATUS_PENDING)
+                    KeWaitForSingleObject(&event, Executive, KernelMode, false, NULL);
+            }
+            ObDereferenceObject(real_dev);
+        }
 
         if (vde) {
             NTSTATUS Status;

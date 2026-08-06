@@ -4254,6 +4254,15 @@ NTSTATUS write_file2(device_extension* Vcb, PIRP Irp, LARGE_INTEGER offset, void
         } else if (!fcb->ads)
             fcb->inode_item.st_size = newlength;
 
+        if (!no_cache && !paging_io && off64 > (uint64_t)fcb->Header.ValidDataLength.QuadPart) {
+            if (FileObject->PrivateCacheMap) {
+                LARGE_INTEGER zero_offset, zero_length;
+                zero_offset.QuadPart = fcb->Header.ValidDataLength.QuadPart;
+                zero_length.QuadPart = off64 - fcb->Header.ValidDataLength.QuadPart;
+                CcZeroData(FileObject, &zero_offset, &zero_length, wait);
+            }
+        }
+
         fcb->Header.FileSize.QuadPart = newlength;
         fcb->Header.ValidDataLength.QuadPart = newlength;
 

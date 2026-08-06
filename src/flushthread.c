@@ -7911,7 +7911,7 @@ static void do_flush(device_extension* Vcb) {
     // every flush interval: the exclusive acquisition blocks all opens and
     // csum loads behind it, and free_trees throws away the cached metadata,
     // forcing it to be re-read from disk immediately afterwards.
-    if (!Vcb->need_write || Vcb->readonly)
+    if (!Vcb->need_write || Vcb->readonly || Vcb->removing)
         return;
 
     if (!ExAcquireResourceExclusiveLite(&Vcb->tree_lock, false))

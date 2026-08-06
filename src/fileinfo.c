@@ -3295,6 +3295,9 @@ static NTSTATUS set_end_of_file_information(device_extension* Vcb, PIRP Irp, PFI
             ERR("error - truncate_file failed\n");
             goto end;
         }
+		if (FileObject->SectionObjectPointer && FileObject->SectionObjectPointer->SharedCacheMap) {
+            CcPurgeCacheSection(FileObject->SectionObjectPointer, &feofi->EndOfFile, 0, FALSE);
+        }
     } else if (new_end_of_file > fcb->inode_item.st_size) {
         TRACE("extending file to %I64x bytes\n", new_end_of_file);
 

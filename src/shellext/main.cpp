@@ -332,6 +332,9 @@ static void reg_delete_tree(HKEY hkey, const wstring& keyname) {
 
     ret = RegOpenKeyExW(hkey, keyname.c_str(), 0, KEY_READ, &k);
 
+    if (ret == ERROR_FILE_NOT_FOUND || ret == ERROR_PATH_NOT_FOUND)
+        return;
+
     if (ret != ERROR_SUCCESS)
         throw last_error(ret);
 
@@ -362,7 +365,7 @@ static void reg_delete_tree(HKEY hkey, const wstring& keyname) {
             } while (true);
 
             ret = RegDeleteKeyW(hkey, keyname.c_str());
-            if (ret != ERROR_SUCCESS)
+            if (ret != ERROR_SUCCESS && ret != ERROR_FILE_NOT_FOUND && ret != ERROR_PATH_NOT_FOUND)
                 throw last_error(ret);
         } catch (...) {
             delete[] buf;
