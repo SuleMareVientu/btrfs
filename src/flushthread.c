@@ -7806,33 +7806,6 @@ static NTSTATUS do_write2(device_extension* Vcb, PIRP Irp, LIST_ENTRY* rollback)
 
     Vcb->superblock.cache_generation = Vcb->superblock.generation;
 
-    if (!Vcb->options.no_barrier)
-        flush_disk_caches(Vcb);
-
-    Status = write_superblocks(Vcb, Irp);
-    if (!NT_SUCCESS(Status)) {
-        ERR("write_superblocks returned %08lx\n", Status);
-        goto end;
-    }
-
-    vde = Vcb->vde;
-
-    if (vde) {
-        pdo_device_extension* pdode = vde->pdode;
-
-        ExAcquireResourceSharedLite(&pdode->child_lock, true);
-
-        le = pdode->children.Flink;
-
-        while (le != &pdode->children) {
-            volume_child* vc = CONTAINING_RECORD(le, volume_child, list_entry);
-
-            vc->generation = Vcb->superblock.generation;
-            le = le->Flink;
-        }
-
-        ExReleaseResourceLite(&pdode->child_lock);
-    }
 
     clean_space_cache(Vcb);
 
@@ -7870,6 +7843,37 @@ static NTSTATUS do_write2(device_extension* Vcb, PIRP Irp, LIST_ENTRY* rollback)
             ExFreePool(r);
         } else
             r->dropped = true;
+    }
+
+    if (ExIsResourceAcquiredExclusiveLite(&Vcb->tree_lock))
+        ExConvertExclusiveToSharedLite(&Vcb->tree_lock);
+
+    if (!Vcb->options.no_barrier)
+        flush_disk_caches(Vcb);
+
+    Status = write_superblocks(Vcb, Irp);
+    if (!NT_SUCCESS(Status)) {
+        ERR("write_superblocks returned %08lx\n", Status);
+        goto end;
+    }
+
+    vde = Vcb->vde;
+
+    if (vde) {
+        pdo_device_extension* pdode = vde->pdode;
+
+        ExAcquireResourceSharedLite(&pdode->child_lock, true);
+
+        le = pdode->children.Flink;
+
+        while (le != &pdode->children) {
+            volume_child* vc = CONTAINING_RECORD(le, volume_child, list_entry);
+
+            vc->generation = Vcb->superblock.generation;
+            le = le->Flink;
+        }
+
+        ExReleaseResourceLite(&pdode->child_lock);
     }
 
 end:
@@ -7922,7 +7926,8 @@ static void do_flush(device_extension* Vcb) {
     else
         Status = STATUS_SUCCESS;
 
-    free_trees(Vcb);
+    reap_filerefs(Vcb, Vcb->root_fileref);
+    reap_fcbs(Vcb);
 
     if (!NT_SUCCESS(Status))
         ERR("do_write returned %08lx\n", Status);
