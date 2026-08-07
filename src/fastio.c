@@ -372,22 +372,20 @@ static NTSTATUS __stdcall fast_io_release_for_ccflush(PFILE_OBJECT FileObject, P
 
 _Function_class_(FAST_IO_WRITE)
 static BOOLEAN __stdcall fast_io_write(PFILE_OBJECT FileObject, PLARGE_INTEGER FileOffset, ULONG Length, BOOLEAN Wait, ULONG LockKey, PVOID Buffer, PIO_STATUS_BLOCK IoStatus, PDEVICE_OBJECT DeviceObject) {
-    fcb* fcb = FileObject->FsContext;
+    fcb* fcb;
     bool ret;
 
-    FsRtlEnterFileSystem();
-
-    if (!ExAcquireResourceSharedLite(&fcb->Vcb->tree_lock, Wait)) {
-        FsRtlExitFileSystem();
+    if (!FileObject || !FileObject->FsContext)
         return false;
-    }
+
+    fcb = FileObject->FsContext;
+
+    FsRtlEnterFileSystem();
 
     ret = FsRtlCopyWrite(FileObject, FileOffset, Length, Wait, LockKey, Buffer, IoStatus, DeviceObject);
 
     if (ret)
         fcb->inode_item.st_size = fcb->Header.FileSize.QuadPart;
-
-    ExReleaseResourceLite(&fcb->Vcb->tree_lock);
 
     FsRtlExitFileSystem();
 
@@ -533,7 +531,6 @@ static void __stdcall fast_io_acquire_for_create_section(_In_ PFILE_OBJECT FileO
     if (!fcb)
         return;
 
-    ExAcquireResourceSharedLite(&fcb->Vcb->tree_lock, true);
     ExAcquireResourceExclusiveLite(fcb->Header.Resource, true);
 }
 
@@ -551,7 +548,6 @@ static void __stdcall fast_io_release_for_create_section(_In_ PFILE_OBJECT FileO
         return;
 
     ExReleaseResourceLite(fcb->Header.Resource);
-    ExReleaseResourceLite(&fcb->Vcb->tree_lock);
 }
 
 void init_fast_io_dispatch(FAST_IO_DISPATCH** fiod) {

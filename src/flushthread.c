@@ -7871,6 +7871,9 @@ static NTSTATUS do_write2(device_extension* Vcb, PIRP Irp, LIST_ENTRY* rollback)
         } else
             r->dropped = true;
     }
+    
+    if (ExIsResourceAcquiredExclusiveLite(&Vcb->tree_lock))
+        ExConvertExclusiveToSharedLite(&Vcb->tree_lock);
 
 end:
     TRACE("do_write returning %08lx\n", Status);
@@ -7922,7 +7925,8 @@ static void do_flush(device_extension* Vcb) {
     else
         Status = STATUS_SUCCESS;
 
-    free_trees(Vcb);
+    reap_filerefs(Vcb, Vcb->root_fileref);
+    reap_fcbs(Vcb);
 
     if (!NT_SUCCESS(Status))
         ERR("do_write returned %08lx\n", Status);

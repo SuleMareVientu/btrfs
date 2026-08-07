@@ -4179,7 +4179,7 @@ NTSTATUS write_file2(device_extension* Vcb, PIRP Irp, LARGE_INTEGER offset, void
 
     pagefile = fcb->Header.Flags2 & FSRTL_FLAG2_IS_PAGING_FILE && paging_io;
 
-    if (!pagefile && !ExIsResourceAcquiredExclusiveLite(&Vcb->tree_lock)) {
+    if (no_cache && !pagefile && !ExIsResourceAcquiredExclusiveLite(&Vcb->tree_lock)) {
         if (!ExAcquireResourceSharedLite(&Vcb->tree_lock, wait)) {
             Status = STATUS_PENDING;
             goto end;
@@ -4193,7 +4193,7 @@ NTSTATUS write_file2(device_extension* Vcb, PIRP Irp, LARGE_INTEGER offset, void
             goto end;
         } else
             acquired_fcb_lock = true;
-    } else if (!ExIsResourceAcquiredExclusiveLite(fcb->Header.Resource)) {
+    } else if (!paging_io && !ExIsResourceAcquiredExclusiveLite(fcb->Header.Resource)) {
         if (!ExAcquireResourceExclusiveLite(fcb->Header.Resource, wait)) {
             Status = STATUS_PENDING;
             goto end;
